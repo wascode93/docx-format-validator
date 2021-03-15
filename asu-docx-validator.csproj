@@ -1,8 +1,14 @@
-<Project Sdk="Microsoft.NET.Sdk.Web">
-
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net5.0</TargetFramework>
     <RootNamespace>asu_docx_validator</RootNamespace>
   </PropertyGroup>
-
+  <ItemGroup>
+    <PackageReference Include="ElectronNET.API" Version="9.31.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Update="electron.manifest.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 </Project>
