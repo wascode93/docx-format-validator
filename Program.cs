@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using ElectronNET.API;  
 
 namespace asu_docx_validator
 {
@@ -20,6 +21,8 @@ namespace asu_docx_validator
             Host.CreateDefaultBuilder(args)
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
+                    webBuilder.UseElectron(args);  
+                    webBuilder.UseEnvironment("Development");  
                     webBuilder.UseStartup<Startup>();
                 });
     }
