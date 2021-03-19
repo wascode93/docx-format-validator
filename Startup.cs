@@ -1,16 +1,15 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
+using System.Runtime.InteropServices;
+using DocumentFormat.OpenXml.Packaging;
+using DocumentFormat.OpenXml.Wordprocessing;
+using ElectronNET.API;
+using ElectronNET.API.Entities;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.HttpsPolicy;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using ElectronNET.API;  
-using ElectronNET.API.Entities;  
-using System.Runtime.InteropServices; 
 
 namespace asu_docx_validator
 {
@@ -60,13 +59,82 @@ namespace asu_docx_validator
                 CreateWindow();  
             }  
         }
-        
-        private async void CreateWindow()  
-        {  
-            var window = await Electron.WindowManager.CreateWindowAsync();  
-            window.OnClosed += () => {  
-                Electron.App.Quit();  
-            };  
+
+        private void CreateMenu()
+        {
+            bool isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+            MenuItem[] menu = null;
+            
+            MenuItem[] fileMenu = new MenuItem[]
+            {
+                new MenuItem
+                {
+                    Label = "Load file", Type = MenuType.normal, Click = async () =>
+                    {
+                        var mainWindow = Electron.WindowManager.BrowserWindows.First();
+                        var options = new OpenDialogOptions()
+                        {
+                            Properties = new OpenDialogProperty[] {OpenDialogProperty.openFile},
+                            Filters = new FileFilter[]
+                            {
+                                new FileFilter {Name = "Word Documents (.docx)", Extensions = new string[] {"docx"}}
+                            }
+                        };
+                        string[] filePaths = await Electron.Dialog.ShowOpenDialogAsync(mainWindow, options);
+                        WordprocessingDocument wordProcessingDocument = WordprocessingDocument.Open(filePaths[0], false);
+                        if (wordProcessingDocument.MainDocumentPart != null)
+                        {
+                            Document document = wordProcessingDocument.MainDocumentPart.Document;
+                            validatePageMargins(document);
+                        }
+                    }
+                },
+                new MenuItem {Type = MenuType.separator},
+                new MenuItem {Role = isWindows ? MenuRole.close : MenuRole.quit}
+            };
+
+            MenuItem[] viewMenu = new MenuItem[]
+            {
+                new MenuItem {Role = MenuRole.reload},
+                new MenuItem {Role = MenuRole.forcereload},
+                new MenuItem {Role = MenuRole.toggledevtools},
+                new MenuItem {Type = MenuType.separator},
+                new MenuItem {Role = MenuRole.resetzoom},
+                new MenuItem {Role = MenuRole.zoomin},
+                new MenuItem {Role = MenuRole.zoomout},
+                new MenuItem {Type = MenuType.separator},
+                new MenuItem {Role = MenuRole.togglefullscreen}
+            };
+
+            if (isWindows)
+            {
+                menu = new MenuItem[]
+                {
+                    new MenuItem {Label = "File", Type = MenuType.submenu, Submenu = fileMenu},
+                    new MenuItem {Label = "View", Type = MenuType.submenu, Submenu = viewMenu}
+                };
+            }
+
+            Electron.Menu.SetApplicationMenu(menu);
+        }
+
+        private void validatePageMargins(Document document)
+        {
+            IEnumerable<PageMargin> pageMarginEnumerable = document.Descendants<PageMargin>();
+            PageMargin pageMargin = pageMarginEnumerable.ToList()[0];
+            if (pageMargin.Top != 1418 || pageMargin.Bottom != 1418 || pageMargin.Left != 1418 ||
+                pageMargin.Right != 1418)
+            {
+                Electron.Notification.Show(new NotificationOptions("Document Margins",
+                    "your document margins are not correct"));
+            }
+        }
+
+        private async void CreateWindow()
+        {
+            CreateMenu();
+            var window = await Electron.WindowManager.CreateWindowAsync();
+            window.OnClosed += () => { Electron.App.Quit(); };
         }
     }
 }
