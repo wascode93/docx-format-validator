@@ -1,6 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
+using asu_docx_validator.Validation;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
 using ElectronNET.API;
@@ -49,22 +50,18 @@ namespace asu_docx_validator
 
             app.UseAuthorization();
 
-            app.UseEndpoints(endpoints =>
+            app.UseEndpoints(endpoints => { endpoints.MapRazorPages(); });
+
+            if (HybridSupport.IsElectronActive)
             {
-                endpoints.MapRazorPages();
-            });
-            
-            if (HybridSupport.IsElectronActive)  
-            {  
-                CreateWindow();  
-            }  
+                CreateWindow();
+            }
         }
 
         private void CreateMenu()
         {
-            bool isWindows = RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
             MenuItem[] menu = null;
-            
+
             MenuItem[] fileMenu = new MenuItem[]
             {
                 new MenuItem
@@ -81,16 +78,23 @@ namespace asu_docx_validator
                             }
                         };
                         string[] filePaths = await Electron.Dialog.ShowOpenDialogAsync(mainWindow, options);
-                        WordprocessingDocument wordProcessingDocument = WordprocessingDocument.Open(filePaths[0], false);
+                        WordprocessingDocument wordProcessingDocument =
+                            WordprocessingDocument.Open(filePaths[0], false);
                         if (wordProcessingDocument.MainDocumentPart != null)
                         {
                             Document document = wordProcessingDocument.MainDocumentPart.Document;
+                            Dictionary<String, List<String>> errorsMap = new Dictionary<string, List<string>>();
+                            TitleValidator.Validate(errorsMap, document, filePaths[0]);
+                            foreach (var error in errorsMap.Values)
+                            {
+                                Array.ForEach(error.ToArray(),Console.WriteLine);
+                            }
                             validatePageMargins(document);
                         }
                     }
                 },
                 new MenuItem {Type = MenuType.separator},
-                new MenuItem {Role = isWindows ? MenuRole.close : MenuRole.quit}
+                new MenuItem {Role = MenuRole.quit}
             };
 
             MenuItem[] viewMenu = new MenuItem[]
@@ -106,14 +110,11 @@ namespace asu_docx_validator
                 new MenuItem {Role = MenuRole.togglefullscreen}
             };
 
-            if (isWindows)
+            menu = new MenuItem[]
             {
-                menu = new MenuItem[]
-                {
-                    new MenuItem {Label = "File", Type = MenuType.submenu, Submenu = fileMenu},
-                    new MenuItem {Label = "View", Type = MenuType.submenu, Submenu = viewMenu}
-                };
-            }
+                new MenuItem {Label = "File", Type = MenuType.submenu, Submenu = fileMenu},
+                new MenuItem {Label = "View", Type = MenuType.submenu, Submenu = viewMenu}
+            };
 
             Electron.Menu.SetApplicationMenu(menu);
         }
